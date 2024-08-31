@@ -32,7 +32,7 @@ async def forward_request_to_telegram(telegram_url, method, data=None, files=Non
 @app.route('/')
 async def home():
     global request_counter
-    # HTML content with favicon and dynamic title
+    # HTML content with favicon and dynamic title (without the <img> tag)
     html_content = f'''
     <!DOCTYPE html>
     <html lang="en">
@@ -46,7 +46,6 @@ async def home():
     </head>
     <body>
         <div style="text-align: center; margin-top: 50px;">
-            # <img src="/static/logo.png" alt="Site Logo" style="width: 150px; height: auto;"/>
             <h1>Server is running</h1>
             <p>Total requests handled: {request_counter}</p>
         </div>
