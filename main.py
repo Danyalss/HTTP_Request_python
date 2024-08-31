@@ -4,58 +4,66 @@ import logging
 
 app = Quart(__name__)
 
-# تنظیمات لاگ‌گیری
+# Initialize request counter
+request_counter = 0
+
+# Setup logging configuration
 logging.basicConfig(filename='requests.log', level=logging.INFO, format='%(asctime)s - %(message)s')
 
 async def forward_request_to_telegram(telegram_url, method, data=None, files=None):
     async with aiohttp.ClientSession() as session:
         if method == 'POST':
             if files:
-                # ارسال درخواست POST با فایل‌ها
+                # Send a POST request with files
                 form_data = aiohttp.FormData()
                 for key, (filename, file_content, content_type) in files.items():
                     form_data.add_field(key, file_content, filename=filename, content_type=content_type)
                 async with session.post(telegram_url, data=form_data) as response:
                     return await response.text(), response.status
             else:
-                # ارسال درخواست POST ساده
+                # Send a simple POST request
                 async with session.post(telegram_url, json=data) as response:
                     return await response.text(), response.status
         else:
-            # ارسال درخواست GET
+            # Send a GET request
             async with session.get(telegram_url, params=data) as response:
                 return await response.text(), response.status
 
 @app.route('/')
 async def home():
-    # نمایش پیام "روشنه" به عنوان وضعیت سرور
-    return Response('<h1>سرور روشنه</h1>', content_type='text/html')
+    global request_counter
+    # Display the server status and request count
+    html_content = f'<h1>Server is running</h1><p>Total requests handled: {request_counter}</p>'
+    return Response(html_content, content_type='text/html')
 
 @app.route('/bot<bot_token>/<path:telegram_method>', methods=['POST', 'GET'])
 async def proxy_to_telegram(bot_token, telegram_method):
-    # ثبت جزئیات درخواست
+    global request_counter
+    request_counter += 1  # Increment the request counter
+
+    # Log request details
     logging.info(f'Received request for bot token: {bot_token}, method: {telegram_method}, data: {await request.get_data()}')
 
-    # URL کامل به سرور تلگرام
+    # Full URL to the Telegram server
     telegram_url = f"https://api.telegram.org/bot{bot_token}/{telegram_method}"
 
-    # ارسال درخواست به تلگرام
+    # Forward request to Telegram
     try:
         if request.method == 'POST':
-            if 'multipart/form-data' in request.content_type:  # چک کردن اگر درخواست شامل فایل باشد
+            if 'multipart/form-data' in request.content_type:  # Check if the request includes files
                 files = {key: (file.filename, await file.read(), file.content_type) for key, file in (await request.files).items()}
-                data = await request.form.to_dict()  # بقیه پارامترهای درخواست
+                data = await request.form.to_dict()  # Other request parameters
                 response_text, status = await forward_request_to_telegram(telegram_url, 'POST', data=data, files=files)
             else:
-                # برای درخواست‌های POST ساده
+                # For simple POST requests
                 incoming_data = await request.get_json()
                 response_text, status = await forward_request_to_telegram(telegram_url, 'POST', data=incoming_data)
         else:
-            # برای درخواست‌های GET
+            # For GET requests
             incoming_data = request.args.to_dict(flat=True)
             response_text, status = await forward_request_to_telegram(telegram_url, 'GET', data=incoming_data)
 
-        # برگرداندن پاسخ تلگرام به درخواست کننده به همان شکل
+        # Return Telegram's response to the requester exactly as received
         return Response(response_text, status=status, content_type='application/json')
     except aiohttp.ClientError as e:
         logging.error(f'Error forwarding request to Telegram: {e}')
