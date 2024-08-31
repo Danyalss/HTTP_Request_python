@@ -26,6 +26,11 @@ async def forward_request_to_telegram(telegram_url, method, data=None, files=Non
             async with session.get(telegram_url, params=data) as response:
                 return await response.text(), response.status
 
+@app.route('/')
+async def home():
+    # نمایش پیام "روشنه" به عنوان وضعیت سرور
+    return Response('<h1>سرور روشنه</h1>', content_type='text/html')
+
 @app.route('/bot<bot_token>/<path:telegram_method>', methods=['POST', 'GET'])
 async def proxy_to_telegram(bot_token, telegram_method):
     # ثبت جزئیات درخواست
