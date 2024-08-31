@@ -1,4 +1,4 @@
-from quart import Quart, request, jsonify
+from quart import Quart, request, jsonify, Response
 import aiohttp
 import logging
 
@@ -16,15 +16,15 @@ async def forward_request_to_telegram(telegram_url, method, data=None, files=Non
                 for key, (filename, file_content, content_type) in files.items():
                     form_data.add_field(key, file_content, filename=filename, content_type=content_type)
                 async with session.post(telegram_url, data=form_data) as response:
-                    return await response.json()
+                    return await response.text(), response.status
             else:
                 # ارسال درخواست POST ساده
                 async with session.post(telegram_url, json=data) as response:
-                    return await response.json()
+                    return await response.text(), response.status
         else:
             # ارسال درخواست GET
             async with session.get(telegram_url, params=data) as response:
-                return await response.json()
+                return await response.text(), response.status
 
 @app.route('/bot<bot_token>/<path:telegram_method>', methods=['POST', 'GET'])
 async def proxy_to_telegram(bot_token, telegram_method):
@@ -40,18 +40,18 @@ async def proxy_to_telegram(bot_token, telegram_method):
             if 'multipart/form-data' in request.content_type:  # چک کردن اگر درخواست شامل فایل باشد
                 files = {key: (file.filename, await file.read(), file.content_type) for key, file in (await request.files).items()}
                 data = await request.form.to_dict()  # بقیه پارامترهای درخواست
-                response = await forward_request_to_telegram(telegram_url, 'POST', data=data, files=files)
+                response_text, status = await forward_request_to_telegram(telegram_url, 'POST', data=data, files=files)
             else:
                 # برای درخواست‌های POST ساده
                 incoming_data = await request.get_json()
-                response = await forward_request_to_telegram(telegram_url, 'POST', data=incoming_data)
+                response_text, status = await forward_request_to_telegram(telegram_url, 'POST', data=incoming_data)
         else:
             # برای درخواست‌های GET
             incoming_data = request.args.to_dict(flat=True)
-            response = await forward_request_to_telegram(telegram_url, 'GET', data=incoming_data)
+            response_text, status = await forward_request_to_telegram(telegram_url, 'GET', data=incoming_data)
 
-        # برگرداندن پاسخ تلگرام به درخواست کننده
-        return jsonify(response)
+        # برگرداندن پاسخ تلگرام به درخواست کننده به همان شکل
+        return Response(response_text, status=status, content_type='application/json')
     except aiohttp.ClientError as e:
         logging.error(f'Error forwarding request to Telegram: {e}')
         return jsonify({'error': 'Failed to forward request to Telegram'}), 500
