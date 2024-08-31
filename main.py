@@ -1,37 +1,13 @@
-from quart import Quart, request, jsonify, Response
-import aiohttp
-import logging
+from flask import Flask, request, Response, jsonify
+import requests
 
-app = Quart(__name__)
+app = Flask(__name__)
 
 # Initialize request counter
 request_counter = 0
 
-# Setup logging configuration
-logging.basicConfig(filename='requests.log', level=logging.INFO, format='%(asctime)s - %(message)s')
-
-async def forward_request_to_telegram(telegram_url, method, data=None, files=None):
-    async with aiohttp.ClientSession() as session:
-        if method == 'POST':
-            if files:
-                # Send a POST request with files
-                form_data = aiohttp.FormData()
-                for key, (filename, file_content, content_type) in files.items():
-                    form_data.add_field(key, file_content, filename=filename, content_type=content_type)
-                async with session.post(telegram_url, data=form_data) as response:
-                    return await response.text(), response.status
-            else:
-                # Send a simple POST request
-                async with session.post(telegram_url, json=data) as response:
-                    return await response.text(), response.status
-        else:
-            # Send a GET request
-            async with session.get(telegram_url, params=data) as response:
-                return await response.text(), response.status
-
 @app.route('/')
-async def home():
-    global request_counter
+def home():
     # HTML content with favicon and dynamic title (without the <img> tag)
     html_content = f'''
     <!DOCTYPE html>
@@ -55,37 +31,33 @@ async def home():
     return Response(html_content, content_type='text/html')
 
 @app.route('/bot<bot_token>/<path:telegram_method>', methods=['POST', 'GET'])
-async def proxy_to_telegram(bot_token, telegram_method):
+def proxy_to_telegram(bot_token, telegram_method):
     global request_counter
     request_counter += 1  # Increment the request counter
-
-    # Log request details
-    logging.info(f'Received request for bot token: {bot_token}, method: {telegram_method}, data: {await request.get_data()}')
 
     # Full URL to the Telegram server
     telegram_url = f"https://api.telegram.org/bot{bot_token}/{telegram_method}"
 
-    # Forward request to Telegram
     try:
+        # Forward request to Telegram
         if request.method == 'POST':
-            if 'multipart/form-data' in request.content_type:  # Check if the request includes files
-                files = {key: (file.filename, await file.read(), file.content_type) for key, file in (await request.files).items()}
-                data = await request.form.to_dict()  # Other request parameters
-                response_text, status = await forward_request_to_telegram(telegram_url, 'POST', data=data, files=files)
+            if 'multipart/form-data' in request.content_type:
+                # Handle file uploads
+                files = {key: (file.filename, file) for key, file in request.files.items()}
+                data = request.form.to_dict()  # Other request parameters
+                response = requests.post(telegram_url, data=data, files=files)
             else:
-                # For simple POST requests
-                incoming_data = await request.get_json()
-                response_text, status = await forward_request_to_telegram(telegram_url, 'POST', data=incoming_data)
+                # Handle simple POST requests
+                response = requests.post(telegram_url, json=request.json)
         else:
-            # For GET requests
-            incoming_data = request.args.to_dict(flat=True)
-            response_text, status = await forward_request_to_telegram(telegram_url, 'GET', data=incoming_data)
-
+            # Handle GET requests
+            response = requests.get(telegram_url, params=request.args)
+        
         # Return Telegram's response to the requester exactly as received
-        return Response(response_text, status=status, content_type='application/json')
-    except aiohttp.ClientError as e:
-        logging.error(f'Error forwarding request to Telegram: {e}')
-        return jsonify({'error': 'Failed to forward request to Telegram'}), 500
+        return Response(response.content, status=response.status_code, content_type=response.headers.get('Content-Type'))
+    
+    except requests.RequestException as e:
+        return jsonify({'error': f'Failed to forward request to Telegram: {str(e)}'}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
