@@ -3,13 +3,13 @@ import requests
 
 app = Flask(__name__)
 
-# Initialize request counter
+# شمارنده درخواست‌ها
 request_counter = 0
 
 @app.route('/')
 def home():
-    # HTML content with favicon and dynamic title (without the <img> tag)
-    html_content = f'''
+    # محتوای HTML با فاویکن و عنوان پویا
+    return Response(f'''
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -17,7 +17,6 @@ def home():
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>requests handled: {request_counter}</title>
-        <!-- Link to favicon -->
         <link rel="icon" href="/static/logo.png" type="image/png">
     </head>
     <body>
@@ -27,33 +26,24 @@ def home():
         </div>
     </body>
     </html>
-    '''
-    return Response(html_content, content_type='text/html')
+    ''', content_type='text/html')
 
 @app.route('/bot<bot_token>/<path:telegram_method>', methods=['POST', 'GET'])
 def proxy_to_telegram(bot_token, telegram_method):
     global request_counter
-    request_counter += 1  # Increment the request counter
+    request_counter += 1  # افزایش شمارنده درخواست‌ها
 
-    # Full URL to the Telegram server
+    # URL کامل برای API تلگرام
     telegram_url = f"https://api.telegram.org/bot{bot_token}/{telegram_method}"
 
     try:
-        # Forward request to Telegram
+        # ارسال درخواست به تلگرام
         if request.method == 'POST':
-            if 'multipart/form-data' in request.content_type:
-                # Handle file uploads
-                files = {key: (file.filename, file) for key, file in request.files.items()}
-                data = request.form.to_dict()  # Other request parameters
-                response = requests.post(telegram_url, data=data, files=files)
-            else:
-                # Handle simple POST requests
-                response = requests.post(telegram_url, json=request.json)
+            response = requests.post(telegram_url, data=request.form, files=request.files) if 'multipart/form-data' in request.content_type else requests.post(telegram_url, json=request.json)
         else:
-            # Handle GET requests
             response = requests.get(telegram_url, params=request.args)
         
-        # Return Telegram's response to the requester exactly as received
+        # بازگرداندن پاسخ از تلگرام
         return Response(response.content, status=response.status_code, content_type=response.headers.get('Content-Type'))
     
     except requests.RequestException as e:
