@@ -42,11 +42,11 @@ async def home():
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>requests handled: {request_counter}</title>
         <!-- Link to favicon -->
-        <link rel="icon" href="/logo.png" type="image/png">
+        <link rel="icon" href="/static/logo.png" type="image/png">
     </head>
     <body>
         <div style="text-align: center; margin-top: 50px;">
-            <img src="/logo.png" alt="Site Logo" style="width: 150px; height: auto;"/>
+            <img src="/static/logo.png" alt="Site Logo" style="width: 150px; height: auto;"/>
             <h1>Server is running</h1>
             <p>Total requests handled: {request_counter}</p>
         </div>
