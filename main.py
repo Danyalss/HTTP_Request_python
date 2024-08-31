@@ -46,7 +46,7 @@ async def home():
     </head>
     <body>
         <div style="text-align: center; margin-top: 50px;">
-            <img src="/static/logo.png" alt="Site Logo" style="width: 150px; height: auto;"/>
+            # <img src="/static/logo.png" alt="Site Logo" style="width: 150px; height: auto;"/>
             <h1>Server is running</h1>
             <p>Total requests handled: {request_counter}</p>
         </div>
