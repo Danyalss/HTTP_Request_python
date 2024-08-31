@@ -32,8 +32,25 @@ async def forward_request_to_telegram(telegram_url, method, data=None, files=Non
 @app.route('/')
 async def home():
     global request_counter
-    # Display the server status and request count
-    html_content = f'<h1>Server is running</h1><p>Total requests handled: {request_counter}</p>'
+    # HTML content with logo and dynamic title
+    html_content = f'''
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>requests handled: {request_counter}</title>
+    </head>
+    <body>
+        <div style="text-align: center; margin-top: 50px;">
+            <img src="/static/logo.png" alt="Site Logo" style="width: 150px; height: auto;"/>
+            <h1>Server is running</h1>
+            <p>Total requests handled: {request_counter}</p>
+        </div>
+    </body>
+    </html>
+    '''
     return Response(html_content, content_type='text/html')
 
 @app.route('/bot<bot_token>/<path:telegram_method>', methods=['POST', 'GET'])
