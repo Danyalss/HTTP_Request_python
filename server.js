@@ -70,4 +70,3 @@ addEventListener('fetch', event => {
     // اگر درخواست با هیچ یک از مسیرهای مشخص شده مطابقت نداشته باشد
     return new Response('Not Found', { status: 404 });
   }
-  
